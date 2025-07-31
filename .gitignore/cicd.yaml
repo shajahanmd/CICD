@@ -1,0 +1,57 @@
+name: CI/CD for Dockerized Flask App
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dockerbuild:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build The Docker Image
+      run: docker build . --file DockerFile --tag workflow-test:latest
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flask
+        pip install pytest
+
+    - name: Run tests
+      run: |
+        pytest
+
+  build-and-publish:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build Docker image (no push)
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./DockerFile
+        push: false
+        tags: workflow-test:latest
+
+    - name: Image digest
+      run: echo ${{ steps.build-and-publish.outputs.digest }}
